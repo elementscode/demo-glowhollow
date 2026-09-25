@@ -1,0 +1,13 @@
+import "./style.css";
+
+<Logo (size: "md" | "lg" = "md")>
+  <span class={["logo", size === "lg" && "is-lg"]}>
+    <span class="logo-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" focusable="false">
+        <path d="M12.6 2.2c.3 2.6-.8 4.4-2.3 6-1.6 1.7-3.3 3.4-3.3 6.3a5 5 0 0 0 10 0c0-1.9-.8-3.3-1.7-4.4-.2 1-.8 1.9-1.8 2.3.6-2.7-.2-6.1-.9-10.2Z"/>
+        <path d="M4 20.2h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2Z" opacity=".55"/>
+      </svg>
+    </span>
+    <span>campfire</span>
+  </span>
+</Logo>

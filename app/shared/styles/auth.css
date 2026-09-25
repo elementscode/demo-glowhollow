@@ -1,0 +1,93 @@
+@import "#app/shared/styles/page.css";
+@import "#app/shared/styles/chrome.css";
+
+.auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: start center;
+  padding: clamp(var(--space-8), 10vh, var(--space-20)) var(--space-4) var(--space-10);
+  background:
+    radial-gradient(60rem 28rem at 50% -8rem, color-mix(in oklab, var(--ember) 16%, transparent), transparent 70%),
+    var(--bg);
+}
+
+.auth-column {
+  width: 100%;
+  max-width: 26rem;
+}
+
+.auth-brand {
+  justify-content: center;
+}
+
+.auth-lede {
+  margin: 0;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.auth .card-body {
+  padding: var(--space-6);
+}
+
+.auth h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.auth-switch {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.demo-logins {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demo-login {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink);
+  text-align: start;
+  height: auto;
+  justify-content: flex-start;
+  font-weight: var(--weight-normal);
+}
+
+.demo-login:hover {
+  background: var(--bg-soft);
+}
+
+.demo-login-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.demo-login-name {
+  font-weight: var(--weight-medium);
+}
+
+.demo-login-email {
+  font-size: var(--text-sm);
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.demo-password {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}

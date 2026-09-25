@@ -1,0 +1,29 @@
+import "./style.css";
+
+/**
+ * Sent to a member who is offline when someone mentions them.
+ *
+ * @email
+ */
+<html (
+  recipientName: string,
+  senderName: string,
+  channelName: string,
+  channelId: string,
+  body: string,
+)>
+  <body class="email mention">
+    <div class="email-wrap">
+      <h1>{senderName} mentioned you in #{channelName}</h1>
+      <p>Hi {recipientName}, you were mentioned while you were away.</p>
+
+      <p class="quote">{body}</p>
+
+      <p><a class="button" href={`/c/${channelId}`}>Open #{channelName}</a></p>
+
+      <div class="email-footer">
+        <p>Sent by Campfire because someone mentioned @{recipientName}.</p>
+      </div>
+    </div>
+  </body>
+</html>

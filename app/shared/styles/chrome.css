@@ -1,0 +1,21 @@
+:root {
+  --sidebar-width: 16rem;
+}
+
+.avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  color: #fff;
+  user-select: none;
+}
+
+.contents {
+  display: contents;
+}

@@ -1,0 +1,510 @@
+import "./style.css";
+import { AuthError, File, LiveView, redirect, type Listener } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Sidebar, Me } from "#app/shared/templates/sidebar";
+import { avatarColor, initial } from "#app/shared/services/avatar";
+import { Segment, completeMention, mentionQuery, mentionedNames, segments } from "#app/shared/services/mentions";
+import { PresenceEvent, RosterEntry, roster } from "#app/shared/services/presence";
+import {
+  ChannelMember,
+  ChatChannel,
+  Message,
+  REACTIONS,
+  TypingPing,
+  UploadedImage,
+  notifyTyping,
+  toggleReaction,
+  uploadImage,
+} from "#app/shared/services/chat";
+
+interface Line {
+  id: string;
+  message: Message;
+  time: string;
+  dayLabel: string;
+  startsDay: boolean;
+  startsRun: boolean;
+  startsNew: boolean;
+  mentionsMe: boolean;
+}
+
+/** The messages that were unread when the page opened, for the "new" line. */
+interface ReadMarker {
+  from: Date;
+  to: Date;
+}
+
+interface Typer {
+  id: string;
+  name: string;
+  until: number;
+}
+
+interface Live {
+  people: RosterEntry[];
+  typers: Typer[];
+}
+
+interface UI {
+  nav: boolean;
+  members: boolean;
+  pickerFor: string;
+  confirmFor: string;
+}
+
+interface Draft {
+  body: string;
+  file?: File;
+  error: string;
+  sending: boolean;
+}
+
+const RUN_GAP_MS = 5 * 60 * 1000;
+
+const TYPING_TTL_MS = 4000;
+
+let lastTypingAt = 0;
+
+let previews = new WeakMap<File, string>();
+
+function dayKey(d: Date): string {
+  return d.toDateString();
+}
+
+function dayLabel(d: Date): string {
+  let today = new Date();
+  let yesterday = new Date(Date.now() - 86_400_000);
+
+  if (dayKey(d) === dayKey(today)) {
+    return "Today";
+  }
+
+  if (dayKey(d) === dayKey(yesterday)) {
+    return "Yesterday";
+  }
+
+  return d.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+}
+
+function timeLabel(d: Date): string {
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+/**
+ * One flat line per message, newest first to suit the column-reverse feed,
+ * with each neighbour-dependent fact carried on the line as a flag.
+ */
+function lines(messages: LiveView<Message>, readMarker: ReadMarker | null, me: Me): Line[] {
+  let out: Line[] = [];
+  let prev: Message | undefined;
+  let placedNew = false;
+  let myName = me.displayName.toLowerCase();
+
+  for (let m of messages.toReversed()) {
+    let createdAt = m.createdAt ?? new Date();
+    let startsDay = !prev || dayKey(prev.createdAt) !== dayKey(createdAt);
+    let startsNew = !placedNew
+      && readMarker !== null
+      && +createdAt > +readMarker.from
+      && +createdAt <= +readMarker.to
+      && m.userId !== me.id;
+
+    if (startsNew) {
+      placedNew = true;
+    }
+
+    out.push({
+      id: m.id,
+      message: m,
+      time: timeLabel(createdAt),
+      dayLabel: dayLabel(createdAt),
+      startsDay,
+      startsNew,
+      startsRun: startsDay || startsNew || !prev || prev.userId !== m.userId || +createdAt - +prev.createdAt > RUN_GAP_MS,
+      mentionsMe: mentionedNames(m.body ?? "").includes(myName),
+    });
+
+    prev = m;
+  }
+
+  return out.reverse();
+}
+
+function reactionList(m: Message): [string, string[]][] {
+  return Object.entries(m.reactions ?? {});
+}
+
+function currentChannel(channels: LiveView<ChatChannel>, id: string): ChatChannel | undefined {
+  return channels.find((c) => c.id === id);
+}
+
+function unreadIn(memberships: LiveView<ChannelMember>, channelId: string): number {
+  return memberships.find((m) => m.channelId === channelId)?.unread ?? 0;
+}
+
+function markRead(memberships: LiveView<ChannelMember>, channelId: string) {
+  let m = memberships.find((m) => m.channelId === channelId);
+
+  if (m && m.unread > 0) {
+    memberships.update({ ...m, unread: 0, lastReadAt: new Date() });
+  }
+}
+
+function online(people: RosterEntry[]): RosterEntry[] {
+  return people.filter((p) => p.online);
+}
+
+function offline(people: RosterEntry[]): RosterEntry[] {
+  return people.filter((p) => !p.online);
+}
+
+function typingText(typers: Typer[]): string {
+  let names = typers.map((t) => t.name);
+
+  if (names.length === 1) {
+    return `${names[0]} is typing`;
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]} are typing`;
+  }
+
+  return `${names.length} people are typing`;
+}
+
+function suggestions(draft: Draft, people: RosterEntry[], me: Me): RosterEntry[] {
+  let q = mentionQuery(draft.body);
+
+  if (q === null) {
+    return [];
+  }
+
+  return people
+    .filter((p) => p.id !== me.id && p.displayName.toLowerCase().startsWith(q!))
+    .slice(0, 6);
+}
+
+function previewUrl(file: File): string {
+  let url = previews.get(file);
+
+  if (!url) {
+    url = URL.createObjectURL(new Blob([file.data as BlobPart], { type: file.contentType }));
+    previews.set(file, url);
+  }
+
+  return url;
+}
+
+function sizeLabel(bytes: number): string {
+  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function onInit(typing: Listener<TypingPing>, presence: Listener<PresenceEvent>, live: Live) {
+  typing.on("notify", (ping) => onTypingPing(live, ping));
+  presence.on("notify", () => live.people = roster());
+}
+
+function dropExpiredTypers(live: Live) {
+  let now = Date.now();
+  let kept = live.typers.filter((t) => t.until > now);
+
+  if (kept.length !== live.typers.length) {
+    live.typers = kept;
+  }
+}
+
+function onTypingPing(live: Live, ping: TypingPing) {
+  let others = live.typers.filter((t) => t.id !== ping.userId);
+
+  if (ping.stopped) {
+    live.typers = others;
+    return;
+  }
+
+  live.typers = [...others, { id: ping.userId, name: ping.userName, until: Date.now() + TYPING_TTL_MS }];
+  setTimeout(() => dropExpiredTypers(live), TYPING_TTL_MS + 100);
+}
+
+function onType(channelId: string, draft: Draft) {
+  let now = Date.now();
+
+  if (!draft.body.trim() || now - lastTypingAt < 1500) {
+    return;
+  }
+
+  lastTypingAt = now;
+  notifyTyping(channelId, false);
+}
+
+function scrollFeedToLatest() {
+  document.querySelector(".feed")?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function onSend(feed: LiveView<Message>, draft: Draft, channelId: string, me: Me) {
+  let body = draft.body.trim();
+
+  if ((!body && !draft.file) || draft.sending) {
+    return;
+  }
+
+  draft.error = "";
+  draft.sending = true;
+
+  try {
+    let image: UploadedImage | undefined;
+
+    if (draft.file) {
+      image = uploadImage({ file: draft.file });
+    }
+
+    feed.insert(
+      {
+        channelId,
+        userId: me.id,
+        userName: me.displayName,
+        body,
+        imageId: image?.id ?? null,
+        imageHash: image?.hash ?? null,
+        reactions: {},
+        createdAt: new Date(),
+      },
+      () => {
+        draft.body = "";
+        draft.file = undefined;
+      },
+    );
+
+    if (lastTypingAt > 0) {
+      lastTypingAt = 0;
+      notifyTyping(channelId, true);
+    }
+
+    scrollFeedToLatest();
+  } catch (err: any) {
+    if (err instanceof AuthError) {
+      redirect("/signin");
+      return;
+    }
+
+    draft.error = err.message;
+  } finally {
+    draft.sending = false;
+  }
+}
+
+function onPickMention(draft: Draft, name: string) {
+  draft.body = completeMention(draft.body, name);
+}
+
+function onTogglePicker(ui: UI, messageId: string) {
+  ui.confirmFor = "";
+  ui.pickerFor = ui.pickerFor === messageId ? "" : messageId;
+}
+
+function onReact(ui: UI, messageId: string, emoji: string) {
+  ui.pickerFor = "";
+  toggleReaction(messageId, emoji);
+}
+
+function onDelete(feed: LiveView<Message>, ui: UI, m: Message) {
+  ui.confirmFor = "";
+  feed.delete(m);
+}
+
+function onCloseDrawers(ui: UI) {
+  ui.nav = false;
+  ui.members = false;
+}
+
+<html lang="en" class="page-channel" (
+  channelId: string,
+  me: Me,
+  readMarker: ReadMarker | null,
+  channels: LiveView<ChatChannel>,
+  memberships: LiveView<ChannelMember>,
+  messages: LiveView<Message>,
+  typing: Listener<TypingPing>,
+  presence: Listener<PresenceEvent>,
+  people: RosterEntry[],
+  private live: Live = { people, typers: [] },
+  private ui: UI = { nav: false, members: false, pickerFor: "", confirmFor: "" },
+  private draft: Draft = { body: "", error: "", sending: false },
+) oninit={() => onInit(typing, presence, live)}>
+  <head>
+    <title>#{currentChannel(channels, channelId)?.name ?? "channel"} · Campfire</title>
+    <meta name="description" content="Campfire channel">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <div class={["chat", ui.nav && "is-nav-open", ui.members && "is-members-open"]}>
+      <Sidebar {channels} {memberships} currentId={channelId} {me} />
+
+      <main class="chat-main">
+        <header class="chat-header">
+          <button class="icon-button nav-toggle is-ghost" aria-label="Show channels" onclick={() => ui.nav = true}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
+
+          <div class="chat-title">
+            <h1>
+              <span><span class="channel-hash" aria-hidden="true">#</span>{currentChannel(channels, channelId)?.name}</span>
+              <span e:if={currentChannel(channels, channelId)?.archived} class="pill is-warning">archived</span>
+            </h1>
+            <p e:if={currentChannel(channels, channelId)?.topic} class="chat-topic">{currentChannel(channels, channelId)?.topic}</p>
+          </div>
+
+          <button class="members-toggle icon-button is-ghost" aria-label="Show members" onclick={() => ui.members = true}>
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/></svg>
+          </button>
+        </header>
+
+        <div class="chat-body">
+          <ul class="feed" aria-live="polite">
+            <li e:for={line of lines(messages, readMarker, me)} e:key={(line: Line) => line.id}>
+              <p e:if={line.startsDay} class="day">{line.dayLabel}</p>
+              <p e:if={line.startsNew} class="new-divider">New messages</p>
+
+              <div tabindex={-1} class={["msg", line.startsRun && "starts-run", line.mentionsMe && "mentions-me", (ui.pickerFor === line.id || ui.confirmFor === line.id) && "is-picking"]}>
+                <span e:if={line.startsRun} class="avatar" style={avatarColor(line.message.userName)} aria-hidden="true">{initial(line.message.userName)}</span>
+                <span e:else class="msg-gutter">{line.time}</span>
+
+                <div class="msg-content">
+                  <div e:if={line.startsRun} class="msg-head">
+                    <span class="msg-author">{line.message.userName}</span>
+                    <time class="msg-time" datetime={line.message.createdAt?.toISOString()}>{line.time}</time>
+                  </div>
+
+                  <p e:if={line.message.body} class="msg-body"><span e:for={s of segments(line.message.body, me.displayName)} e:key={(s: Segment) => s.id} class={[s.mention && "mention", s.isMe && "is-me"]}>{s.text}</span></p>
+
+                  <a e:if={line.message.imageId} class="msg-image" href={`/images/${line.message.imageId}/${line.message.imageHash}`} target="_blank" rel="noopener">
+                    <img src={`/images/${line.message.imageId}/${line.message.imageHash}`} alt={`Image from ${line.message.userName}`} loading="lazy">
+                  </a>
+
+                  <div e:if={reactionList(line.message).length > 0} class="reactions">
+                    <button e:for={[emoji, users] of reactionList(line.message)}
+                            e:key={([emoji]) => emoji}
+                            class={["reaction", "is-sm", users.includes(me.id) && "is-mine"]}
+                            aria-pressed={users.includes(me.id)}
+                            aria-label={`${emoji} ${users.length}`}
+                            onclick={() => toggleReaction(line.message.id, emoji)}>
+                      <span>{emoji}</span><span>{users.length}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="msg-actions">
+                  <span e:if={ui.pickerFor === line.id} class="contents">
+                    <button e:for={emoji of REACTIONS} e:key={(emoji: string) => emoji} class="msg-action emoji-choice" aria-label={`React ${emoji}`} onclick={() => onReact(ui, line.id, emoji)}>{emoji}</button>
+                  </span>
+
+                  <button e:if={ui.confirmFor === line.id} class="is-danger is-sm" onclick={() => onDelete(messages, ui, line.message)}>Delete</button>
+
+                  <button e:if={ui.confirmFor !== line.id} class="msg-action" aria-label="Add reaction" title="Add reaction" onclick={() => onTogglePicker(ui, line.id)}>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
+                  </button>
+
+                  <button e:if={me.isAdmin}
+                          class="msg-action is-delete"
+                          aria-label={ui.confirmFor === line.id ? "Cancel delete" : "Delete message"}
+                          title={ui.confirmFor === line.id ? "Cancel" : "Delete message"}
+                          onclick={() => ui.confirmFor = ui.confirmFor === line.id ? "" : line.id}>
+                    <svg e:if={ui.confirmFor !== line.id} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                    <svg e:else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+                  </button>
+                </div>
+              </div>
+            </li>
+
+            <li e:if={messages.hasMore} class="feed-more">
+              <button class="is-sm" onclick={() => messages.more()}>Load older messages</button>
+            </li>
+
+            <li e:else class="feed-start">
+              <h2>#{currentChannel(channels, channelId)?.name}</h2>
+              <p>This is the very beginning of the channel.</p>
+            </li>
+          </ul>
+
+          <aside class="members" aria-label="Members">
+            <h2>Online · {online(live.people).length}</h2>
+            <ul>
+              <li e:for={p of online(live.people)} class="member is-online">
+                <span class="avatar" style={avatarColor(p.displayName)} aria-hidden="true">{initial(p.displayName)}<span class="member-status"></span></span>
+                <span class="member-name">{p.displayName}<span e:if={p.id === me.id}> (you)</span></span>
+                <span e:if={p.role === "admin"} class="pill is-accent">admin</span>
+              </li>
+            </ul>
+
+            <h2 e:if={offline(live.people).length > 0}>Offline · {offline(live.people).length}</h2>
+            <ul>
+              <li e:for={p of offline(live.people)} class="member is-offline">
+                <span class="avatar" style={avatarColor(p.displayName)} aria-hidden="true">{initial(p.displayName)}<span class="member-status"></span></span>
+                <span class="member-name">{p.displayName}</span>
+                <span e:if={p.role === "admin"} class="pill">admin</span>
+              </li>
+            </ul>
+          </aside>
+        </div>
+
+        <span e:if={unreadIn(memberships, channelId) > 0}
+              oninsert={() => markRead(memberships, channelId)}
+              hidden></span>
+
+        <p e:if={currentChannel(channels, channelId)?.archived} class="callout is-warning archived-note">
+          This channel is archived. You can read its history, but no one can post.
+        </p>
+
+        <footer e:else class="composer">
+          <div class="composer-box">
+            <div e:if={suggestions(draft, live.people, me).length > 0} class="suggestions">
+              <button e:for={p of suggestions(draft, live.people, me)}
+                      type="button"
+                      class="is-ghost"
+                      onmousedown={(e) => e.preventDefault()}
+                      onclick={() => onPickMention(draft, p.displayName)}>
+                <span class="avatar" style={avatarColor(p.displayName)} aria-hidden="true">{initial(p.displayName)}</span>
+                @{p.displayName}
+              </button>
+            </div>
+
+            <div e:if={draft.file} class="attachment">
+              <img src={draft.file ? previewUrl(draft.file) : ""} alt="">
+              <span class="attachment-name">{draft.file?.name} · {sizeLabel(draft.file?.size ?? 0)}</span>
+              <button type="button" class="is-ghost is-sm" onclick={() => draft.file = undefined}>Remove</button>
+            </div>
+
+            <form onsubmit={() => onSend(messages, draft, channelId, me)}>
+              <label class="attach" title="Attach an image">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5-9 9"/></svg>
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" value={draft.file} aria-label="Attach an image">
+              </label>
+
+              <input type="text"
+                     value={draft.body}
+                     oninput={() => onType(channelId, draft)}
+                     placeholder={`Message #${currentChannel(channels, channelId)?.name ?? ""}`}
+                     aria-label="Message"
+                     autocomplete="off"
+                     maxlength={4000}
+                     focus={true}>
+
+              <button type="submit" class="is-primary" disabled={draft.sending || (!draft.body.trim() && !draft.file)}>
+                {draft.sending ? "Sending…" : "Send"}
+              </button>
+            </form>
+          </div>
+
+          <div class="composer-status" aria-live="polite">
+            <span e:if={draft.error} class="composer-error" role="alert">{draft.error}</span>
+            <span e:elseif={live.typers.length > 0} class="typing">
+              <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+              {typingText(live.typers)}…
+            </span>
+          </div>
+        </footer>
+      </main>
+
+      <button class="scrim" aria-label="Close panel" onclick={() => onCloseDrawers(ui)}></button>
+    </div>
+  </body>
+</html>
