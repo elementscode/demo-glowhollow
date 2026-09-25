@@ -1,0 +1,137 @@
+@import "#app/shared/styles/page.css";
+@import "#app/shared/styles/chrome.css";
+
+.admin {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.admin-main {
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.admin-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 3.75rem;
+  padding: var(--space-2) var(--space-5);
+  border-bottom: 1px solid var(--rule);
+}
+
+.admin-head h1 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.admin-content {
+  max-width: 52rem;
+  padding: var(--space-6) var(--space-5) var(--space-12);
+}
+
+.admin-content .card-head h2 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.card-head p {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+.new-channel {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) auto;
+  gap: var(--space-2);
+  align-items: start;
+}
+
+.admin-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.admin-row:first-child {
+  border-top: 0;
+}
+
+.admin-row.is-muted {
+  color: var(--ink-dim);
+}
+
+.admin-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-row-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-medium);
+}
+
+.admin-row-sub {
+  font-size: var(--text-sm);
+  color: var(--ink-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-row-actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-2);
+}
+
+.rename-form {
+  display: grid;
+  grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr) auto auto;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.nav-toggle {
+  display: none;
+}
+
+.admin-error {
+  margin: 0 0 var(--space-4);
+}
+
+@media (max-width: 48rem) {
+  .admin {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin .sidebar {
+    display: none;
+  }
+
+  .admin-content {
+    padding-inline: var(--space-4);
+  }
+
+  .new-channel,
+  .rename-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-row {
+    flex-wrap: wrap;
+  }
+}

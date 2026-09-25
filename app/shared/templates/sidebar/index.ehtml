@@ -1,0 +1,80 @@
+import "./style.css";
+import { LiveView, redirect } from "@elements/app";
+import { Logo } from "#app/shared/templates/logo";
+import { signout } from "#app/shared/services/auth";
+import { avatarColor, initial } from "#app/shared/services/avatar";
+import { ChannelMember, ChatChannel } from "#app/shared/services/chat";
+
+export interface Me {
+  id: string;
+  displayName: string;
+  isAdmin: boolean;
+}
+
+interface SidebarRow {
+  id: string;
+  name: string;
+  unread: number;
+}
+
+/** Open channels in creation order, each with this member's unread count. */
+function sidebarRows(channels: LiveView<ChatChannel>, memberships: LiveView<ChannelMember>): SidebarRow[] {
+  let unread = new Map<string, number>();
+
+  for (let m of memberships) {
+    unread.set(m.channelId, m.unread);
+  }
+
+  return channels
+    .filter((c) => !c.archived)
+    .sort((a, b) => +a.createdAt - +b.createdAt)
+    .map((c) => ({ id: c.id, name: c.name, unread: unread.get(c.id) ?? 0 }));
+}
+
+function onSignout() {
+  signout();
+  redirect("/signin");
+}
+
+<Sidebar (
+  channels: LiveView<ChatChannel>,
+  memberships: LiveView<ChannelMember>,
+  currentId: string,
+  me: Me,
+)>
+  <aside class="sidebar" aria-label="Channels">
+    <div class="sidebar-head">
+      <a href="/" class="logo-link"><Logo /></a>
+    </div>
+
+    <nav class="sidebar-scroll">
+      <div class="sidebar-label">
+        <span>Channels</span>
+        <a e:if={me.isAdmin} href="/admin">Manage</a>
+      </div>
+
+      <ul class="channel-list stack is-xs">
+        <li e:for={row of sidebarRows(channels, memberships)} e:key={(row: SidebarRow) => row.id}>
+          <a href={`/c/${row.id}`}
+             class={["channel-link", row.id === currentId && "is-active", row.unread > 0 && row.id !== currentId && "is-unread"]}
+             aria-current={row.id === currentId ? "page" : undefined}>
+            <span class="channel-hash" aria-hidden="true">#</span>
+            <span class="channel-name">{row.name}</span>
+            <span e:if={row.unread > 0 && row.id !== currentId}
+                  class="unread-badge"
+                  aria-label={`${row.unread} unread`}>{row.unread > 99 ? "99+" : row.unread}</span>
+          </a>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-foot">
+      <span class="avatar" style={avatarColor(me.displayName)} aria-hidden="true">{initial(me.displayName)}</span>
+      <span class="sidebar-me">
+        <strong>@{me.displayName}</strong>
+        <span>{me.isAdmin ? "Admin" : "Member"}</span>
+      </span>
+      <button class="is-ghost is-sm" onclick={() => onSignout()}>Sign out</button>
+    </div>
+  </aside>
+</Sidebar>

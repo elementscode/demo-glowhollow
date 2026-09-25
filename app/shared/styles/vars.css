@@ -1,0 +1,43 @@
+@layer tokens {
+  :root {
+    --brand-50: oklch(0.98 0.012 55);
+    --brand-100: oklch(0.955 0.03 55);
+    --brand-200: oklch(0.91 0.06 52);
+    --brand-300: oklch(0.84 0.11 50);
+    --brand-400: oklch(0.74 0.16 46);
+    --brand-500: oklch(0.65 0.19 42);
+    --brand-600: oklch(0.55 0.18 40);
+    --brand-700: oklch(0.47 0.15 38);
+    --brand-800: oklch(0.37 0.11 36);
+    --brand-900: oklch(0.27 0.07 36);
+    --brand-950: oklch(0.18 0.045 36);
+    --accent: var(--brand-600);
+    --accent-deep: var(--brand-700);
+    --accent-soft: var(--brand-50);
+    --accent-ink: #ffffff;
+    --accent-edge: var(--brand-200);
+    --link-c: 0.15;
+    --link-h: 40;
+    --ember: var(--brand-500);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --accent: var(--brand-400);
+      --accent-deep: var(--brand-300);
+      --accent-soft: var(--brand-900);
+      --accent-ink: var(--brand-950);
+      --accent-edge: var(--brand-700);
+      --ember: var(--brand-400);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --accent: var(--brand-400);
+    --accent-deep: var(--brand-300);
+    --accent-soft: var(--brand-900);
+    --accent-ink: var(--brand-950);
+    --accent-edge: var(--brand-700);
+    --ember: var(--brand-400);
+  }
+}

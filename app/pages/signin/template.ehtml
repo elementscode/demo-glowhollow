@@ -1,0 +1,124 @@
+import "./style.css";
+import { redirect } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Logo } from "#app/shared/templates/logo";
+import { signin } from "#app/shared/services/auth";
+import { avatarColor, initial } from "#app/shared/services/avatar";
+
+interface SigninForm {
+  email: string;
+  password: string;
+  error: string;
+}
+
+interface DemoLogin {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export const DEMO_PASSWORD = "glowhollow123";
+
+export const DEMO_LOGINS: DemoLogin[] = [
+  { id: "maya", name: "maya", email: "maya@glowhollow.test", role: "admin" },
+  { id: "jonas", name: "jonas", email: "jonas@glowhollow.test", role: "member" },
+  { id: "priya", name: "priya", email: "priya@glowhollow.test", role: "member" },
+  { id: "theo", name: "theo", email: "theo@glowhollow.test", role: "member" },
+];
+
+function onSubmit(form: SigninForm) {
+  try {
+    signin(form.email, form.password);
+    form.error = "";
+    redirect("/");
+  } catch (err: any) {
+    form.error = err.message;
+  }
+}
+
+function onPickDemo(form: SigninForm, login: DemoLogin) {
+  form.email = login.email;
+  form.password = DEMO_PASSWORD;
+  form.error = "";
+}
+
+<html lang="en" class="page-signin" (
+  showDemoLogins: boolean,
+  private form: SigninForm = { email: "", password: "", error: "" },
+)>
+  <head>
+    <title>Sign in · Glowhollow</title>
+    <meta name="description" content="Sign in to Glowhollow, a private chat for our community.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <main class="auth">
+      <div class="auth-column stack is-lg">
+        <div class="stack is-sm">
+          <div class="row auth-brand"><Logo size="lg" /></div>
+          <p class="auth-lede">A private chat for our small corner of the internet.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
+            <form class="stack" onsubmit={() => onSubmit(form)}>
+              <h1>Sign in</h1>
+
+              <p e:if={form.error} class="callout is-danger" role="alert">{form.error}</p>
+
+              <div class="field">
+                <label for="email">Email</label>
+                <input id="email"
+                       name="email"
+                       type="email"
+                       value={form.email}
+                       autocomplete="email"
+                       autocapitalize="none"
+                       spellcheck={false}
+                       placeholder="you@example.com"
+                       required>
+              </div>
+
+              <div class="field">
+                <label for="password">Password</label>
+                <input id="password"
+                       name="password"
+                       type="password"
+                       value={form.password}
+                       autocomplete="current-password"
+                       required>
+              </div>
+
+              <button type="submit" class="is-primary is-block">Sign in</button>
+            </form>
+          </div>
+        </div>
+
+        <p class="auth-switch">New here? <a href="/signup">Create an account</a></p>
+
+        <div e:if={showDemoLogins} class="card">
+          <div class="card-head">
+            <h2 class="text-md">Seeded logins</h2>
+          </div>
+          <div class="card-body stack is-sm">
+            <p class="demo-password">Click one to fill the form. Every seeded account uses the password <code>{DEMO_PASSWORD}</code>.</p>
+
+            <ul class="demo-logins stack is-xs">
+              <li e:for={login of DEMO_LOGINS}>
+                <button type="button" class="demo-login" onclick={() => onPickDemo(form, login)}>
+                  <span class="avatar" style={avatarColor(login.name)} aria-hidden="true">{initial(login.name)}</span>
+                  <span class="demo-login-text">
+                    <span class="demo-login-name">@{login.name}</span>
+                    <span class="demo-login-email">{login.email}</span>
+                  </span>
+                  <span class={["pill", login.role === "admin" && "is-accent"]}>{login.role}</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

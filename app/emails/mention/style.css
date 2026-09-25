@@ -1,0 +1,19 @@
+@import "#app/shared/styles/email.css";
+
+.email.mention .quote {
+  margin: 20px 0;
+  padding: 12px 16px;
+  border-left: 3px solid #e8590c;
+  background: #fff7f0;
+  color: #1f2933;
+}
+
+.email.mention .button {
+  display: inline-block;
+  padding: 10px 18px;
+  border-radius: 6px;
+  background: #c2410c;
+  color: #ffffff;
+  font-weight: 600;
+  text-decoration: none;
+}

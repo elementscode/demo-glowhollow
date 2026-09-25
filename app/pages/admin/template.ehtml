@@ -1,0 +1,197 @@
+import "./style.css";
+import { LiveView } from "@elements/app";
+import favicon from "#app/shared/assets/favicons/favicon.svg";
+import { Sidebar, Me } from "#app/shared/templates/sidebar";
+import { avatarColor, initial } from "#app/shared/services/avatar";
+import { ChannelMember, ChatChannel } from "#app/shared/services/chat";
+import { MemberRow, removeMember } from "#app/shared/services/members";
+
+interface NewChannel {
+  name: string;
+  topic: string;
+}
+
+interface Editing {
+  id: string;
+  name: string;
+  topic: string;
+}
+
+interface Admin {
+  members: MemberRow[];
+  confirmRemove: string;
+  error: string;
+}
+
+function sorted(channels: LiveView<ChatChannel>): ChatChannel[] {
+  return channels.sort((a, b) => Number(a.archived) - Number(b.archived) || +a.createdAt - +b.createdAt);
+}
+
+function slug(value: string): string {
+  return value.trim().toLowerCase().replace(/^#/, "").replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+function onCreate(channels: LiveView<ChatChannel>, draft: NewChannel, state: Admin) {
+  state.error = "";
+
+  try {
+    channels.insert(
+      { name: slug(draft.name), topic: draft.topic.trim(), archived: false, createdAt: new Date() },
+      () => {
+        draft.name = "";
+        draft.topic = "";
+      },
+    );
+  } catch (err: any) {
+    state.error = err.message;
+  }
+}
+
+function onEdit(editing: Editing, c: ChatChannel) {
+  editing.id = c.id;
+  editing.name = c.name;
+  editing.topic = c.topic;
+}
+
+function onSaveEdit(channels: LiveView<ChatChannel>, editing: Editing, c: ChatChannel, state: Admin) {
+  state.error = "";
+
+  try {
+    channels.update({ ...c, name: slug(editing.name), topic: editing.topic.trim() }, () => editing.id = "");
+  } catch (err: any) {
+    state.error = err.message;
+  }
+}
+
+function onSetArchived(channels: LiveView<ChatChannel>, c: ChatChannel, archived: boolean, state: Admin) {
+  state.error = "";
+
+  try {
+    channels.update({ ...c, archived });
+  } catch (err: any) {
+    state.error = err.message;
+  }
+}
+
+function onRemove(state: Admin, member: MemberRow) {
+  state.error = "";
+
+  try {
+    state.members = removeMember(member.id);
+    state.confirmRemove = "";
+  } catch (err: any) {
+    state.error = err.message;
+  }
+}
+
+function joined(d: Date): string {
+  return new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+<html lang="en" class="page-admin" (
+  me: Me,
+  channels: LiveView<ChatChannel>,
+  memberships: LiveView<ChannelMember>,
+  members: MemberRow[],
+  private draft: NewChannel = { name: "", topic: "" },
+  private editing: Editing = { id: "", name: "", topic: "" },
+  private state: Admin = { members, confirmRemove: "", error: "" },
+)>
+  <head>
+    <title>Admin · Glowhollow</title>
+    <meta name="description" content="Manage Glowhollow channels and members.">
+    <link rel="icon" type="image/svg+xml" href={favicon} />
+  </head>
+  <body>
+    <div class="admin">
+      <Sidebar {channels} {memberships} currentId="" {me} />
+
+      <main class="admin-main">
+        <header class="admin-head">
+          <h1>Admin</h1>
+          <span class="pill is-accent">@{me.displayName}</span>
+          <a href="/" class="button is-ghost is-sm" style="margin-inline-start: auto">Back to chat</a>
+        </header>
+
+        <div class="admin-content stack is-lg">
+          <p e:if={state.error} class="callout is-danger admin-error" role="alert">{state.error}</p>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Channels</h2>
+              <p>New channels include every member. Archived channels stay readable but no one can post.</p>
+            </div>
+
+            <div class="card-body stack">
+              <form class="new-channel" onsubmit={() => onCreate(channels, draft, state)}>
+                <input value={draft.name} placeholder="channel-name" aria-label="New channel name" maxlength={40} required>
+                <input value={draft.topic} placeholder="Topic (optional)" aria-label="New channel topic" maxlength={120}>
+                <button type="submit" class="is-primary">Create channel</button>
+              </form>
+
+              <ul class="admin-list">
+                <li e:for={c of sorted(channels)} class={["admin-row", c.archived && "is-muted"]}>
+                  <form e:if={editing.id === c.id} class="rename-form" onsubmit={() => onSaveEdit(channels, editing, c, state)}>
+                    <input value={editing.name} aria-label="Channel name" maxlength={40} required focus={true}>
+                    <input value={editing.topic} aria-label="Channel topic" placeholder="Topic" maxlength={120}>
+                    <button type="submit" class="is-primary is-sm">Save</button>
+                    <button type="button" class="is-ghost is-sm" onclick={() => editing.id = ""}>Cancel</button>
+                  </form>
+
+                  <div e:else class="contents">
+                    <div class="admin-row-main">
+                      <div class="admin-row-title">
+                        <a e:if={!c.archived} href={`/c/${c.id}`}>#{c.name}</a>
+                        <span e:else>#{c.name}</span>
+                        <span e:if={c.archived} class="pill is-warning">archived</span>
+                      </div>
+                      <div class="admin-row-sub">{c.topic || "No topic"}</div>
+                    </div>
+
+                    <div class="admin-row-actions">
+                      <button class="is-sm" onclick={() => onEdit(editing, c)}>Rename</button>
+                      <button e:if={!c.archived} class="is-sm" onclick={() => onSetArchived(channels, c, true, state)}>Archive</button>
+                      <button e:else class="is-sm" onclick={() => onSetArchived(channels, c, false, state)}>Restore</button>
+                    </div>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Members</h2>
+              <p>Removing someone signs them out everywhere and blocks them from signing back in. Their past messages stay.</p>
+            </div>
+
+            <div class="card-body">
+              <ul class="admin-list">
+                <li e:for={m of state.members} class={["admin-row", m.removed && "is-muted"]}>
+                  <span class="avatar" style={avatarColor(m.displayName)} aria-hidden="true">{initial(m.displayName)}</span>
+
+                  <div class="admin-row-main">
+                    <div class="admin-row-title">
+                      @{m.displayName}
+                      <span e:if={m.role === "admin"} class="pill is-accent">admin</span>
+                      <span e:if={m.removed} class="pill is-danger">removed</span>
+                    </div>
+                    <div class="admin-row-sub">{m.email} · joined {joined(m.createdAt)} · {m.messageCount} {m.messageCount === 1 ? "message" : "messages"}</div>
+                  </div>
+
+                  <div e:if={!m.removed && m.role !== "admin"} class="admin-row-actions">
+                    <span e:if={state.confirmRemove === m.id} class="contents">
+                      <button class="is-danger is-sm" onclick={() => onRemove(state, m)}>Remove @{m.displayName}</button>
+                      <button class="is-ghost is-sm" onclick={() => state.confirmRemove = ""}>Cancel</button>
+                    </span>
+                    <button e:else class="is-sm" onclick={() => state.confirmRemove = m.id}>Remove</button>
+                  </div>
+                </li>
+              </ul>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
