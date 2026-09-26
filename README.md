@@ -4,7 +4,7 @@
 
 Channels with unread counts, image attachments, emoji reactions, presence and typing indicators, and @mentions that email offline members, all live.
 
-**Demo:** [Campfire](TBD)
+**Demo:** [Campfire](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6)
 
 ## Get started
 
