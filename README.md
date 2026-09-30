@@ -1,3 +1,5 @@
+![Campfire, a private community chat app built with Elements: the #general channel with messages, an image attachment, emoji reactions, an @mention, unread counts, members online and a typing indicator.](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6/poster?v=c45cacbde8db)
+
 # Campfire
 
 > A demo app built with [Elements](https://elements.dev).
@@ -5,6 +7,15 @@
 Channels with unread counts, image attachments, emoji reactions, presence and typing indicators, and @mentions that email offline members, all live.
 
 **Demo:** [Campfire](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6)
+
+## Agent specs
+
+What one run of the prompt below took, from an empty Elements project to this
+app.
+
+- **Agent:** Claude Code, Opus 5.5 Medium
+- **Time:** 22 min
+- **Cost:** $11.58 at API rates, September 2026
 
 ## Get started
 
