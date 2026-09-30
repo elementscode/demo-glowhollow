@@ -8,6 +8,6 @@ import "./style.css";
         <path d="M4 20.2h16a1 1 0 0 1 0 2H4a1 1 0 0 1 0-2Z" opacity=".55"/>
       </svg>
     </span>
-    <span>campfire</span>
+    <span>glowhollow</span>
   </span>
 </Logo>

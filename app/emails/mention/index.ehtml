@@ -22,7 +22,7 @@ import "./style.css";
       <p><a class="button" href={`/c/${channelId}`}>Open #{channelName}</a></p>
 
       <div class="email-footer">
-        <p>Sent by Campfire because someone mentioned @{recipientName}.</p>
+        <p>Sent by Glowhollow because someone mentioned @{recipientName}.</p>
       </div>
     </div>
   </body>

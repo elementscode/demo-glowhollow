@@ -1,12 +1,12 @@
-![Campfire, a private community chat app built with Elements: the #general channel with messages, an image attachment, emoji reactions, an @mention, unread counts, members online and a typing indicator.](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6/poster?v=c45cacbde8db)
+![Glowhollow, a private community chat app built with Elements: the #general channel with messages, an image attachment, emoji reactions, an @mention, unread counts, members online and a typing indicator.](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6/poster?v=c45cacbde8db)
 
-# Campfire
+# Glowhollow
 
 > A demo app built with [Elements](https://elements.dev).
 
 Channels with unread counts, image attachments, emoji reactions, presence and typing indicators, and @mentions that email offline members, all live.
 
-**Demo:** [Campfire](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6)
+**Demo:** [Glowhollow](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6)
 
 ## Agent specs
 
@@ -20,26 +20,26 @@ app.
 ## Get started
 
 ```bash
-elements create campfire -scaffold=elementscode/demo-campfire
+elements create glowhollow -scaffold=elementscode/demo-glowhollow
 ```
 
 ## Demo accounts
 
 The seed creates three channels (general, announcements, off-topic) with a
 short conversation in each, and four accounts. Every account's password is
-`campfire123`, and the sign-in page lists them.
+`glowhollow123`, and the sign-in page lists them.
 
 | Email                 | Role   |
 | --------------------- | ------ |
-| maya@campfire.test    | admin  |
-| jonas@campfire.test   | member |
-| priya@campfire.test   | member |
-| theo@campfire.test    | member |
+| maya@glowhollow.test    | admin  |
+| jonas@glowhollow.test   | member |
+| priya@glowhollow.test   | member |
+| theo@glowhollow.test    | member |
 
 ## The prompt
 
 ```text
-Build a private chat app named campfire for a small online community.
+Build a private chat app named glowhollow for a small online community.
 
 Two kinds of accounts: member and admin. Anyone can sign up with an email and
 password. No ID or phone verification.

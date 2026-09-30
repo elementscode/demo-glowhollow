@@ -18,13 +18,13 @@ interface DemoLogin {
   role: string;
 }
 
-export const DEMO_PASSWORD = "campfire123";
+export const DEMO_PASSWORD = "glowhollow123";
 
 export const DEMO_LOGINS: DemoLogin[] = [
-  { id: "maya", name: "maya", email: "maya@campfire.test", role: "admin" },
-  { id: "jonas", name: "jonas", email: "jonas@campfire.test", role: "member" },
-  { id: "priya", name: "priya", email: "priya@campfire.test", role: "member" },
-  { id: "theo", name: "theo", email: "theo@campfire.test", role: "member" },
+  { id: "maya", name: "maya", email: "maya@glowhollow.test", role: "admin" },
+  { id: "jonas", name: "jonas", email: "jonas@glowhollow.test", role: "member" },
+  { id: "priya", name: "priya", email: "priya@glowhollow.test", role: "member" },
+  { id: "theo", name: "theo", email: "theo@glowhollow.test", role: "member" },
 ];
 
 function onSubmit(form: SigninForm) {
@@ -48,8 +48,8 @@ function onPickDemo(form: SigninForm, login: DemoLogin) {
   private form: SigninForm = { email: "", password: "", error: "" },
 )>
   <head>
-    <title>Sign in · Campfire</title>
-    <meta name="description" content="Sign in to Campfire, a private chat for our community.">
+    <title>Sign in · Glowhollow</title>
+    <meta name="description" content="Sign in to Glowhollow, a private chat for our community.">
     <link rel="icon" type="image/svg+xml" href={favicon} />
   </head>
   <body>

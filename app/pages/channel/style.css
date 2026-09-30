@@ -11,12 +11,14 @@
 
 .chat-main {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) 15rem;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
 }
 
 .chat-header {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -48,10 +50,20 @@
   text-overflow: ellipsis;
 }
 
+/* the members column runs from the header to the bottom, beside the composer */
 .chat-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 15rem;
-  min-height: 0;
+  display: contents;
+}
+
+.feed,
+.composer,
+.archived-note {
+  grid-column: 1;
+}
+
+.members {
+  grid-column: 2;
+  grid-row: 2 / span 2;
 }
 
 /* column-reverse keeps the newest message pinned to the bottom as rows arrive */
@@ -562,7 +574,7 @@
 }
 
 @media (max-width: 64rem) {
-  .chat-body {
+  .chat-main {
     grid-template-columns: minmax(0, 1fr);
   }
 

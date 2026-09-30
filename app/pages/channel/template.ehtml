@@ -331,8 +331,8 @@ function onCloseDrawers(ui: UI) {
   private draft: Draft = { body: "", error: "", sending: false },
 ) oninit={() => onInit(typing, presence, live)}>
   <head>
-    <title>#{currentChannel(channels, channelId)?.name ?? "channel"} · Campfire</title>
-    <meta name="description" content="Campfire channel">
+    <title>#{currentChannel(channels, channelId)?.name ?? "channel"} · Glowhollow</title>
+    <meta name="description" content="Glowhollow channel">
     <link rel="icon" type="image/svg+xml" href={favicon} />
   </head>
   <body>

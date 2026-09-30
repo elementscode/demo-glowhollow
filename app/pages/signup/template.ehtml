@@ -25,8 +25,8 @@ function onSubmit(form: SignupPageForm) {
   private form: SignupPageForm = { email: "", password: "", displayName: "", error: "" },
 )>
   <head>
-    <title>Create an account · Campfire</title>
-    <meta name="description" content="Join Campfire with an email and password.">
+    <title>Create an account · Glowhollow</title>
+    <meta name="description" content="Join Glowhollow with an email and password.">
     <link rel="icon" type="image/svg+xml" href={favicon} />
   </head>
   <body>
@@ -34,7 +34,7 @@ function onSubmit(form: SignupPageForm) {
       <div class="auth-column stack is-lg">
         <div class="stack is-sm">
           <div class="row auth-brand"><Logo size="lg" /></div>
-          <p class="auth-lede">Pull up a log. All you need is an email and a password.</p>
+          <p class="auth-lede">Pull up a chair. All you need is an email and a password.</p>
         </div>
 
         <div class="card">

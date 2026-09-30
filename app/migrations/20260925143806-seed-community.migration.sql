@@ -8,21 +8,21 @@ insert into channels (name, topic, createdAt) values
 
 -- Every seeded login shares one password, listed on the sign-in page.
 insert into users (email, passwordHash, displayName, role) values
-  ('maya@campfire.test', crypt('campfire123', genSalt('bf', 12)), 'maya', 'admin'),
-  ('jonas@campfire.test', crypt('campfire123', genSalt('bf', 12)), 'jonas', 'member'),
-  ('priya@campfire.test', crypt('campfire123', genSalt('bf', 12)), 'priya', 'member'),
-  ('theo@campfire.test', crypt('campfire123', genSalt('bf', 12)), 'theo', 'member');
+  ('maya@glowhollow.test', crypt('glowhollow123', genSalt('bf', 12)), 'maya', 'admin'),
+  ('jonas@glowhollow.test', crypt('glowhollow123', genSalt('bf', 12)), 'jonas', 'member'),
+  ('priya@glowhollow.test', crypt('glowhollow123', genSalt('bf', 12)), 'priya', 'member'),
+  ('theo@glowhollow.test', crypt('glowhollow123', genSalt('bf', 12)), 'theo', 'member');
 
 insert into messages (channelId, userId, userName, body, createdAt)
 select c.id, u.id, u.displayName, m.body, now() - m.ago
   from (values
-    ('announcements', 'maya', 'Campfire is live! Please keep conversations kind, and use #off-topic for anything that wanders.', interval '1 day 2 hours'),
+    ('announcements', 'maya', 'Glowhollow is live! Please keep conversations kind, and use #off-topic for anything that wanders.', interval '1 day 2 hours'),
     ('announcements', 'maya', 'New this week: attach an image to any message, and react with emoji. Mention someone with @name and they''ll get an email if they''re away.', interval '3 hours'),
 
-    ('general', 'maya', 'Welcome to Campfire, everyone 🔥 Pull up a log and say hi.', interval '2 hours 58 minutes'),
+    ('general', 'maya', 'Welcome to Glowhollow, everyone 🔥 Pull up a chair and say hi.', interval '2 hours 58 minutes'),
     ('general', 'jonas', 'Hey all! Glad to be here.', interval '2 hours 55 minutes'),
     ('general', 'priya', 'Hi hi 👋 love the name.', interval '2 hours 54 minutes'),
-    ('general', 'theo', 'Evening, folks. @maya thanks for setting this up.', interval '2 hours 40 minutes'),
+    ('general', 'theo', 'Hi folks! @maya thanks for setting this up.', interval '2 hours 40 minutes'),
     ('general', 'maya', 'Of course! Holler if anything looks broken.', interval '2 hours 38 minutes'),
     ('general', 'priya', 'Anyone up for a video call on Thursday?', interval '42 minutes'),
     ('general', 'jonas', '@priya count me in. Evening works best for me.', interval '37 minutes'),
@@ -39,14 +39,14 @@ select c.id, u.id, u.displayName, m.body, now() - m.ago
 insert into reactions (messageId, userId, emoji)
 select msg.id, u.id, r.emoji
   from (values
-    ('Welcome to Campfire, everyone 🔥 Pull up a log and say hi.', 'jonas', '🔥'),
-    ('Welcome to Campfire, everyone 🔥 Pull up a log and say hi.', 'priya', '🔥'),
-    ('Welcome to Campfire, everyone 🔥 Pull up a log and say hi.', 'theo', '❤️'),
+    ('Welcome to Glowhollow, everyone 🔥 Pull up a chair and say hi.', 'jonas', '🔥'),
+    ('Welcome to Glowhollow, everyone 🔥 Pull up a chair and say hi.', 'priya', '🔥'),
+    ('Welcome to Glowhollow, everyone 🔥 Pull up a chair and say hi.', 'theo', '❤️'),
     ('Anyone up for a video call on Thursday?', 'theo', '👍'),
     ('Anyone up for a video call on Thursday?', 'jonas', '👍'),
     ('Rereading The Hobbit. No shame.', 'theo', '😂'),
     ('Rereading The Hobbit. No shame.', 'priya', '❤️'),
-    ('Campfire is live! Please keep conversations kind, and use #off-topic for anything that wanders.', 'priya', '🎉')
+    ('Glowhollow is live! Please keep conversations kind, and use #off-topic for anything that wanders.', 'priya', '🎉')
   ) as r(body, author, emoji)
   join messages msg on msg.body = r.body
   join users u on u.displayName = r.author;

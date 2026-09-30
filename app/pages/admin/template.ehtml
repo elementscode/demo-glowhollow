@@ -98,8 +98,8 @@ function joined(d: Date): string {
   private state: Admin = { members, confirmRemove: "", error: "" },
 )>
   <head>
-    <title>Admin · Campfire</title>
-    <meta name="description" content="Manage Campfire channels and members.">
+    <title>Admin · Glowhollow</title>
+    <meta name="description" content="Manage Glowhollow channels and members.">
     <link rel="icon" type="image/svg+xml" href={favicon} />
   </head>
   <body>

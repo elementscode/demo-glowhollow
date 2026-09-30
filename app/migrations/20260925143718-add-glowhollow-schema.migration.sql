@@ -1,4 +1,4 @@
--- add campfire schema
+-- add glowhollow schema
 
 create or replace function touchUpdatedAt()
 returns trigger

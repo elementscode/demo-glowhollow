@@ -7,7 +7,7 @@ test("mentions", () => {
   });
 
   test("ignores email addresses and single letters", () => {
-    equal(mentionedNames("write to maya@campfire.test or @a"), []);
+    equal(mentionedNames("write to maya@glowhollow.test or @a"), []);
   });
 
   test("splits a body into text and mention runs", () => {

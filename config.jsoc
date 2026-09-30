@@ -37,7 +37,7 @@
   },
 
   database: {
-    name: "campfire",
+    name: "glowhollow",
     host: env("DB_HOST", "127.0.0.1"),
     port: env("DB_PORT", 5433),
     user: env("DB_USER", "postgres"),

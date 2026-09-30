@@ -19,7 +19,7 @@ test("channel", async () => {
 
   test("a message is unread for everyone but its author", async () => {
     loginAs(jonas);
-    messages.view({ channelId: general }).insert({ body: "hello campfire" });
+    messages.view({ channelId: general }).insert({ body: "hello glowhollow" });
 
     equal(unread(jonas.id, general), 0);
     equal(unread(maya.id, general), 1);
@@ -30,7 +30,7 @@ test("channel", async () => {
     `).firstOrThrow();
 
     equal(row.userName, "jonas");
-    equal(row.body, "hello campfire");
+    equal(row.body, "hello glowhollow");
   });
 
   test("the author comes from the session, not the payload", async () => {
