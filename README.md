@@ -30,10 +30,15 @@ Glowhollow needed messages that arrive in every open window, unread counts per c
 ### What Elements gave the app
 
 - **Live channels and messages.** Channels, memberships and messages are LiveTables. A message appears for everyone in the channel, and a database trigger raises the unread count for every other member, so the sidebar badges move as people talk.
+
 - **Reactions in the message row.** Reacting calls an `@rpc`, and a trigger folds the reaction into its message, so the change reaches every open copy of it.
+
 - **Presence and typing.** A presence channel records each open window and clears it a few seconds after the window closes, which drives the online roster. A typing channel carries "is typing" pings between members of the same channel.
+
 - **Mentions by email.** When a message @mentions someone with no open window, a background job emails them the message.
+
 - **Image attachments.** An rpc takes the attachment as a `File`, checks its type and size, and stores it, and a route serves it under its content hash.
+
 - **Sessions and roles.** Admins create and archive channels, and removing a member ends every active session they have at once. Three migrations define the schema and seed one admin, three members and three channels with a conversation in each.
 
 ### What the project server gave the agent
