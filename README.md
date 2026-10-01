@@ -29,12 +29,12 @@ Glowhollow needed messages that arrive in every open window, unread counts per c
 
 ### What Elements gave the app
 
-- **Live channels and messages.** `channels`, `channelMembers` and `messages` in `app/shared/services/chat.ts` are LiveTables. A message goes in through the view and appears for everyone in the channel, and a database trigger raises the unread count for every other member, so the sidebar badges move as people talk.
-- **Reactions in the message row.** `toggleReaction` is an `@rpc` that writes a reaction, and a trigger folds it into its message's `reactions` column, so the change reaches every open copy of the message.
-- **Presence and typing.** The channel page opens a `presence` channel listener that records each open window and clears it a few seconds after the window closes, which drives the online roster. A `typing` channel carries "is typing" pings between members of the same channel.
-- **Mentions by email.** When a message @mentions someone with no open window, the insert handler schedules `SendMentionJob` in `app/jobs/send-mention.ts`, which emails them the message.
-- **Uploads as function calls.** `uploadImage` takes the attachment as a `File`, checks its type and size, and stores it, and `/images/:id/:hash` serves it under its content hash.
-- **Sessions and roles.** Admins create and archive channels from `/admin`, and `removeMember` in `app/shared/services/members.ts` ends every active session for that member at once. Three migrations define the schema and seed one admin, three members and three channels with a conversation in each.
+- **Live channels and messages.** Channels, memberships and messages are LiveTables. A message appears for everyone in the channel, and a database trigger raises the unread count for every other member, so the sidebar badges move as people talk.
+- **Reactions in the message row.** Reacting calls an `@rpc`, and a trigger folds the reaction into its message, so the change reaches every open copy of it.
+- **Presence and typing.** A presence channel records each open window and clears it a few seconds after the window closes, which drives the online roster. A typing channel carries "is typing" pings between members of the same channel.
+- **Mentions by email.** When a message @mentions someone with no open window, a background job emails them the message.
+- **Image attachments.** An rpc takes the attachment as a `File`, checks its type and size, and stores it, and a route serves it under its content hash.
+- **Sessions and roles.** Admins create and archive channels, and removing a member ends every active session they have at once. Three migrations define the schema and seed one admin, three members and three channels with a conversation in each.
 
 ### What the project server gave the agent
 
@@ -43,8 +43,6 @@ The project server runs alongside the agent and answers as soon as a file is sav
 ### What shipped
 
 The app type-checks with zero errors and all 24 tests pass. Every page works on desktop and phone, and live updates arrive across tabs, such as new messages, reactions, unread counts and who is typing.
-
-Start in `app/shared/services/chat.ts`.
 
 ## Demo accounts
 
