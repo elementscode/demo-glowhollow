@@ -63,7 +63,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .admin-row {
-    flex-wrap: wrap;
+  .admin-row .item-content {
+    flex-basis: 12rem;
   }
 }
