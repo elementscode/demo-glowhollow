@@ -1,7 +1,18 @@
 import "./style.css";
 import { AuthError, File, LiveView, redirect, type Listener } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
-import { Sidebar, Me } from "#app/shared/templates/sidebar";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@elements/ui/sidebar";
+import { Alert } from "@elements/ui/alert";
+import { AlertDialog, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@elements/ui/alert-dialog";
+import { Attachments, Attachment } from "@elements/ui/attachment";
+import { Avatar, AvatarBadge } from "@elements/ui/avatar";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Icon } from "@elements/ui/icon";
+import { Sheet, SheetBody } from "@elements/ui/sheet";
+import { Toaster, toast } from "@elements/ui/toast";
+import { Toggle } from "@elements/ui/toggle";
+import { AppSidebar, Me } from "#app/shared/templates/sidebar";
 import { avatarColor, initial } from "#app/shared/services/avatar";
 import { Segment, completeMention, mentionQuery, mentionedNames, segments } from "#app/shared/services/mentions";
 import { PresenceEvent, RosterEntry, roster } from "#app/shared/services/presence";
@@ -46,16 +57,15 @@ interface Live {
 }
 
 interface UI {
-  nav: boolean;
   members: boolean;
   pickerFor: string;
   confirmFor: string;
+  confirming: boolean;
 }
 
 interface Draft {
   body: string;
   file?: File;
-  error: string;
   sending: boolean;
 }
 
@@ -195,10 +205,6 @@ function previewUrl(file: File): string {
   return url;
 }
 
-function sizeLabel(bytes: number): string {
-  return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-
 function onInit(typing: Listener<TypingPing>, presence: Listener<PresenceEvent>, live: Live) {
   typing.on("notify", (ping) => onTypingPing(live, ping));
   presence.on("notify", () => live.people = roster());
@@ -247,7 +253,6 @@ function onSend(feed: LiveView<Message>, draft: Draft, channelId: string, me: Me
     return;
   }
 
-  draft.error = "";
   draft.sending = true;
 
   try {
@@ -286,7 +291,7 @@ function onSend(feed: LiveView<Message>, draft: Draft, channelId: string, me: Me
       return;
     }
 
-    draft.error = err.message;
+    toast.error(err.message);
   } finally {
     draft.sending = false;
   }
@@ -306,15 +311,50 @@ function onReact(ui: UI, messageId: string, emoji: string) {
   toggleReaction(messageId, emoji);
 }
 
-function onDelete(feed: LiveView<Message>, ui: UI, m: Message) {
-  ui.confirmFor = "";
-  feed.delete(m);
+function onAskDelete(ui: UI, messageId: string) {
+  ui.pickerFor = "";
+  ui.confirmFor = messageId;
+  ui.confirming = true;
 }
 
-function onCloseDrawers(ui: UI) {
-  ui.nav = false;
-  ui.members = false;
+function onDelete(feed: LiveView<Message>, ui: UI) {
+  let m = feed.find((m) => m.id === ui.confirmFor);
+  ui.confirmFor = "";
+
+  if (m) {
+    feed.delete(m);
+  }
 }
+
+function draftAttachment(file: File) {
+  return { id: "draft", type: "file" as const, filename: file.name, mediaType: file.contentType, url: previewUrl(file), size: file.size };
+}
+
+<MemberList (people: RosterEntry[], me: Me)>
+  <div class="member-list">
+    <h2>Online · {online(people).length}</h2>
+    <ul>
+      <li e:for={p of online(people)} class="member is-online">
+        <Avatar size="sm" fallback={initial(p.displayName)} class="member-avatar" attrs={{ style: avatarColor(p.displayName) }}>
+          <AvatarBadge label="Online" />
+        </Avatar>
+        <span class="member-name">{p.displayName}<span e:if={p.id === me.id}> (you)</span></span>
+        <Badge e:if={p.role === "admin"} variant="accent">admin</Badge>
+      </li>
+    </ul>
+
+    <h2 e:if={offline(people).length > 0}>Offline · {offline(people).length}</h2>
+    <ul>
+      <li e:for={p of offline(people)} class="member is-offline">
+        <Avatar size="sm" fallback={initial(p.displayName)} class="member-avatar" attrs={{ style: avatarColor(p.displayName) }}>
+          <AvatarBadge label="Offline" tone="muted" />
+        </Avatar>
+        <span class="member-name">{p.displayName}</span>
+        <Badge e:if={p.role === "admin"} variant="secondary">admin</Badge>
+      </li>
+    </ul>
+  </div>
+</MemberList>
 
 <html lang="en" class="page-channel" (
   channelId: string,
@@ -327,8 +367,8 @@ function onCloseDrawers(ui: UI) {
   presence: Listener<PresenceEvent>,
   people: RosterEntry[],
   private live: Live = { people, typers: [] },
-  private ui: UI = { nav: false, members: false, pickerFor: "", confirmFor: "" },
-  private draft: Draft = { body: "", error: "", sending: false },
+  private ui: UI = { members: false, pickerFor: "", confirmFor: "", confirming: false },
+  private draft: Draft = { body: "", sending: false },
 ) oninit={() => onInit(typing, presence, live)}>
   <head>
     <title>#{currentChannel(channels, channelId)?.name ?? "channel"} · Glowhollow</title>
@@ -336,26 +376,27 @@ function onCloseDrawers(ui: UI) {
     <link rel="icon" type="image/svg+xml" href={favicon} />
   </head>
   <body>
-    <div class={["chat", ui.nav && "is-nav-open", ui.members && "is-members-open"]}>
-      <Sidebar {channels} {memberships} currentId={channelId} {me} />
+    <SidebarProvider class="chat" shortcut="" cookie="">
+      <AppSidebar {channels} {memberships} currentId={channelId} {me} />
 
-      <main class="chat-main">
+      <SidebarInset class="chat-main">
         <header class="chat-header">
-          <button class="icon-button nav-toggle is-ghost" aria-label="Show channels" onclick={() => ui.nav = true}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-          </button>
+          <SidebarTrigger label="Show channels" class="nav-toggle" />
 
           <div class="chat-title">
             <h1>
               <span><span class="channel-hash" aria-hidden="true">#</span>{currentChannel(channels, channelId)?.name}</span>
-              <span e:if={currentChannel(channels, channelId)?.archived} class="pill is-warning">archived</span>
+              <Badge e:if={currentChannel(channels, channelId)?.archived} variant="warning">archived</Badge>
             </h1>
             <p e:if={currentChannel(channels, channelId)?.topic} class="chat-topic">{currentChannel(channels, channelId)?.topic}</p>
           </div>
 
-          <button class="members-toggle icon-button is-ghost" aria-label="Show members" onclick={() => ui.members = true}>
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/></svg>
-          </button>
+          <Sheet open={ui.members} side="right" size="sm" title="Members">
+            <Button slot="trigger" variant="ghost" icon label="Show members" class="members-toggle"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-2.5-5.1"/></svg></Button>
+            <SheetBody>
+              <MemberList people={live.people} {me} />
+            </SheetBody>
+          </Sheet>
         </header>
 
         <div class="chat-body">
@@ -364,8 +405,8 @@ function onCloseDrawers(ui: UI) {
               <p e:if={line.startsDay} class="day">{line.dayLabel}</p>
               <p e:if={line.startsNew} class="new-divider">New messages</p>
 
-              <div tabindex={-1} class={["msg", line.startsRun && "starts-run", line.mentionsMe && "mentions-me", (ui.pickerFor === line.id || ui.confirmFor === line.id) && "is-picking"]}>
-                <span e:if={line.startsRun} class="avatar" style={avatarColor(line.message.userName)} aria-hidden="true">{initial(line.message.userName)}</span>
+              <div tabindex={-1} class={["msg", line.startsRun && "starts-run", line.mentionsMe && "mentions-me", ui.pickerFor === line.id && "is-picking"]}>
+                <Avatar e:if={line.startsRun} fallback={initial(line.message.userName)} class="member-avatar" attrs={{ style: avatarColor(line.message.userName) }} />
                 <span e:else class="msg-gutter">{line.time}</span>
 
                 <div class="msg-content">
@@ -381,42 +422,37 @@ function onCloseDrawers(ui: UI) {
                   </a>
 
                   <div e:if={reactionList(line.message).length > 0} class="reactions">
-                    <button e:for={[emoji, users] of reactionList(line.message)}
+                    <Toggle e:for={[emoji, users] of reactionList(line.message)}
                             e:key={([emoji]) => emoji}
-                            class={["reaction", "is-sm", users.includes(me.id) && "is-mine"]}
-                            aria-pressed={users.includes(me.id)}
-                            aria-label={`${emoji} ${users.length}`}
-                            onclick={() => toggleReaction(line.message.id, emoji)}>
+                            variant="outline"
+                            size="sm"
+                            class="reaction"
+                            pressed={users.includes(me.id)}
+                            label={`${emoji} ${users.length}`}
+                            onPressedChange={(_, details) => { details.cancel(); toggleReaction(line.message.id, emoji); }}>
                       <span>{emoji}</span><span>{users.length}</span>
-                    </button>
+                    </Toggle>
                   </div>
                 </div>
 
                 <div class="msg-actions">
                   <span e:if={ui.pickerFor === line.id} class="contents">
-                    <button e:for={emoji of REACTIONS} e:key={(emoji: string) => emoji} class="msg-action emoji-choice" aria-label={`React ${emoji}`} onclick={() => onReact(ui, line.id, emoji)}>{emoji}</button>
+                    <Button e:for={emoji of REACTIONS} e:key={(emoji: string) => emoji} variant="ghost" size="sm" icon label={`React ${emoji}`} class="emoji-choice" onclick={() => onReact(ui, line.id, emoji)}>{emoji}</Button>
                   </span>
 
-                  <button e:if={ui.confirmFor === line.id} class="is-danger is-sm" onclick={() => onDelete(messages, ui, line.message)}>Delete</button>
-
-                  <button e:if={ui.confirmFor !== line.id} class="msg-action" aria-label="Add reaction" title="Add reaction" onclick={() => onTogglePicker(ui, line.id)}>
+                  <Button variant="ghost" size="sm" icon label="Add reaction" attrs={{ title: "Add reaction" }} onclick={() => onTogglePicker(ui, line.id)}>
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01"/></svg>
-                  </button>
+                  </Button>
 
-                  <button e:if={me.isAdmin}
-                          class="msg-action is-delete"
-                          aria-label={ui.confirmFor === line.id ? "Cancel delete" : "Delete message"}
-                          title={ui.confirmFor === line.id ? "Cancel" : "Delete message"}
-                          onclick={() => ui.confirmFor = ui.confirmFor === line.id ? "" : line.id}>
-                    <svg e:if={ui.confirmFor !== line.id} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
-                    <svg e:else viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
-                  </button>
+                  <Button e:if={me.isAdmin} variant="ghost" size="sm" icon label="Delete message" class="is-delete" attrs={{ title: "Delete message" }} onclick={() => onAskDelete(ui, line.id)}>
+                    <Icon name="trash" />
+                  </Button>
                 </div>
               </div>
             </li>
 
             <li e:if={messages.hasMore} class="feed-more">
-              <button class="is-sm" onclick={() => messages.more()}>Load older messages</button>
+              <Button size="sm" onclick={() => messages.more()}>Load older messages</Button>
             </li>
 
             <li e:else class="feed-start">
@@ -426,23 +462,7 @@ function onCloseDrawers(ui: UI) {
           </ul>
 
           <aside class="members" aria-label="Members">
-            <h2>Online · {online(live.people).length}</h2>
-            <ul>
-              <li e:for={p of online(live.people)} class="member is-online">
-                <span class="avatar" style={avatarColor(p.displayName)} aria-hidden="true">{initial(p.displayName)}<span class="member-status"></span></span>
-                <span class="member-name">{p.displayName}<span e:if={p.id === me.id}> (you)</span></span>
-                <span e:if={p.role === "admin"} class="pill is-accent">admin</span>
-              </li>
-            </ul>
-
-            <h2 e:if={offline(live.people).length > 0}>Offline · {offline(live.people).length}</h2>
-            <ul>
-              <li e:for={p of offline(live.people)} class="member is-offline">
-                <span class="avatar" style={avatarColor(p.displayName)} aria-hidden="true">{initial(p.displayName)}<span class="member-status"></span></span>
-                <span class="member-name">{p.displayName}</span>
-                <span e:if={p.role === "admin"} class="pill">admin</span>
-              </li>
-            </ul>
+            <MemberList people={live.people} {me} />
           </aside>
         </div>
 
@@ -450,32 +470,31 @@ function onCloseDrawers(ui: UI) {
               oninsert={() => markRead(memberships, channelId)}
               hidden></span>
 
-        <p e:if={currentChannel(channels, channelId)?.archived} class="callout is-warning archived-note">
-          This channel is archived. You can read its history, but no one can post.
-        </p>
+        <Alert e:if={currentChannel(channels, channelId)?.archived}
+               variant="warning"
+               role="none"
+               class="archived-note"
+               description="This channel is archived. You can read its history, but no one can post." />
 
         <footer e:else class="composer">
           <div class="composer-box">
-            <div e:if={suggestions(draft, live.people, me).length > 0} class="suggestions">
-              <button e:for={p of suggestions(draft, live.people, me)}
-                      type="button"
-                      class="is-ghost"
-                      onmousedown={(e) => e.preventDefault()}
+            <div e:if={suggestions(draft, live.people, me).length > 0} class="suggestions" onmousedown={(e) => e.preventDefault()}>
+              <Button e:for={p of suggestions(draft, live.people, me)}
+                      variant="ghost"
+                      size="sm"
                       onclick={() => onPickMention(draft, p.displayName)}>
-                <span class="avatar" style={avatarColor(p.displayName)} aria-hidden="true">{initial(p.displayName)}</span>
+                <Avatar size="sm" fallback={initial(p.displayName)} class="member-avatar" attrs={{ style: avatarColor(p.displayName) }} />
                 @{p.displayName}
-              </button>
+              </Button>
             </div>
 
-            <div e:if={draft.file} class="attachment">
-              <img src={draft.file ? previewUrl(draft.file) : ""} alt="">
-              <span class="attachment-name">{draft.file?.name} · {sizeLabel(draft.file?.size ?? 0)}</span>
-              <button type="button" class="is-ghost is-sm" onclick={() => draft.file = undefined}>Remove</button>
-            </div>
+            <Attachments e:if={draft.file} variant="list" class="draft-attachment">
+              <Attachment data={draftAttachment(draft.file!)} showSize onRemoveItem={() => draft.file = undefined} />
+            </Attachments>
 
             <form onsubmit={() => onSend(messages, draft, channelId, me)}>
               <label class="attach" title="Attach an image">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="m21 16-5-5-9 9"/></svg>
+                <Icon name="image" />
                 <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" value={draft.file} aria-label="Attach an image">
               </label>
 
@@ -488,23 +507,27 @@ function onCloseDrawers(ui: UI) {
                      maxlength={4000}
                      focus={true}>
 
-              <button type="submit" class="is-primary" disabled={draft.sending || (!draft.body.trim() && !draft.file)}>
-                {draft.sending ? "Sending…" : "Send"}
-              </button>
+              <Button type="submit" variant="primary" loading={draft.sending} disabled={!draft.body.trim() && !draft.file}>Send</Button>
             </form>
           </div>
 
           <div class="composer-status" aria-live="polite">
-            <span e:if={draft.error} class="composer-error" role="alert">{draft.error}</span>
-            <span e:elseif={live.typers.length > 0} class="typing">
+            <span e:if={live.typers.length > 0} class="typing">
               <span class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></span>
               {typingText(live.typers)}…
             </span>
           </div>
         </footer>
-      </main>
 
-      <button class="scrim" aria-label="Close panel" onclick={() => onCloseDrawers(ui)}></button>
-    </div>
+        <AlertDialog open={ui.confirming} title="Delete this message?" description="It is removed for everyone in the channel." size="sm">
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="danger" onclick={() => onDelete(messages, ui)}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialog>
+      </SidebarInset>
+    </SidebarProvider>
+
+    <Toaster richColors position="top-center" />
   </body>
 </html>

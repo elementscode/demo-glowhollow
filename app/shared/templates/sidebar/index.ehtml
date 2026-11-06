@@ -1,5 +1,11 @@
 import "./style.css";
 import { LiveView, redirect } from "@elements/app";
+import {
+  Sidebar, SidebarHeader, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel,
+  SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarMenuBadge,
+} from "@elements/ui/sidebar";
+import { Avatar } from "@elements/ui/avatar";
+import { Button } from "@elements/ui/button";
 import { Logo } from "#app/shared/templates/logo";
 import { signout } from "#app/shared/services/auth";
 import { avatarColor, initial } from "#app/shared/services/avatar";
@@ -36,45 +42,50 @@ function onSignout() {
   redirect("/signin");
 }
 
-<Sidebar (
+<AppSidebar (
   channels: LiveView<ChatChannel>,
   memberships: LiveView<ChannelMember>,
   currentId: string,
   me: Me,
 )>
-  <aside class="sidebar" aria-label="Channels">
-    <div class="sidebar-head">
+  <Sidebar label="Channels">
+    <SidebarHeader>
       <a href="/" class="logo-link"><Logo /></a>
-    </div>
+    </SidebarHeader>
 
-    <nav class="sidebar-scroll">
-      <div class="sidebar-label">
-        <span>Channels</span>
-        <a e:if={me.isAdmin} href="/admin">Manage</a>
+    <SidebarContent>
+      <SidebarGroup>
+        <SidebarGroupLabel>
+          <span>Channels</span>
+          <a e:if={me.isAdmin} href="/admin" class="sidebar-manage">Manage</a>
+        </SidebarGroupLabel>
+
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem e:for={row of sidebarRows(channels, memberships)} e:key={(row: SidebarRow) => row.id}>
+              <SidebarMenuButton href={`/c/${row.id}`}
+                                 isActive={row.id === currentId}
+                                 class={row.unread > 0 && row.id !== currentId ? "is-unread" : ""}>
+                <span class="channel-hash" aria-hidden="true">#</span>
+                <span>{row.name}</span>
+              </SidebarMenuButton>
+              <SidebarMenuBadge e:if={row.unread > 0 && row.id !== currentId}
+                                class="unread-count">{row.unread > 99 ? "99+" : row.unread}<span class="sr-only"> unread</span></SidebarMenuBadge>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+
+    <SidebarFooter>
+      <div class="sidebar-me-row">
+        <Avatar fallback={initial(me.displayName)} class="member-avatar" attrs={{ style: avatarColor(me.displayName) }} />
+        <span class="sidebar-me">
+          <strong>@{me.displayName}</strong>
+          <span>{me.isAdmin ? "Admin" : "Member"}</span>
+        </span>
+        <Button variant="ghost" size="sm" onclick={() => onSignout()}>Sign out</Button>
       </div>
-
-      <ul class="channel-list stack is-xs">
-        <li e:for={row of sidebarRows(channels, memberships)} e:key={(row: SidebarRow) => row.id}>
-          <a href={`/c/${row.id}`}
-             class={["channel-link", row.id === currentId && "is-active", row.unread > 0 && row.id !== currentId && "is-unread"]}
-             aria-current={row.id === currentId ? "page" : undefined}>
-            <span class="channel-hash" aria-hidden="true">#</span>
-            <span class="channel-name">{row.name}</span>
-            <span e:if={row.unread > 0 && row.id !== currentId}
-                  class="unread-badge"
-                  aria-label={`${row.unread} unread`}>{row.unread > 99 ? "99+" : row.unread}</span>
-          </a>
-        </li>
-      </ul>
-    </nav>
-
-    <div class="sidebar-foot">
-      <span class="avatar" style={avatarColor(me.displayName)} aria-hidden="true">{initial(me.displayName)}</span>
-      <span class="sidebar-me">
-        <strong>@{me.displayName}</strong>
-        <span>{me.isAdmin ? "Admin" : "Member"}</span>
-      </span>
-      <button class="is-ghost is-sm" onclick={() => onSignout()}>Sign out</button>
-    </div>
-  </aside>
-</Sidebar>
+    </SidebarFooter>
+  </Sidebar>
+</AppSidebar>

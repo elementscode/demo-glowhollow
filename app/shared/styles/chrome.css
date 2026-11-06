@@ -1,21 +1,6 @@
-:root {
-  --sidebar-width: 16rem;
-}
-
-.avatar {
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  font-size: var(--text-sm);
+/* Each member keeps one color: the hue comes from their name. */
+.avatar.member-avatar .avatar-fallback {
+  background: var(--member-hue);
+  color: var(--white);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  color: #fff;
-  user-select: none;
-}
-
-.contents {
-  display: contents;
 }

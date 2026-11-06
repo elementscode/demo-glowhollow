@@ -1,7 +1,16 @@
 import "./style.css";
 import { LiveView } from "@elements/app";
 import favicon from "#app/shared/assets/favicons/favicon.svg";
-import { Sidebar, Me } from "#app/shared/templates/sidebar";
+import { SidebarProvider, SidebarInset } from "@elements/ui/sidebar";
+import { Alert } from "@elements/ui/alert";
+import { AlertDialog, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@elements/ui/alert-dialog";
+import { Avatar } from "@elements/ui/avatar";
+import { Badge } from "@elements/ui/badge";
+import { Button } from "@elements/ui/button";
+import { Card, CardContent } from "@elements/ui/card";
+import { Input } from "@elements/ui/input";
+import { ItemGroup, Item, ItemMedia, ItemContent, ItemTitle, ItemDescription, ItemActions } from "@elements/ui/item";
+import { AppSidebar, Me } from "#app/shared/templates/sidebar";
 import { avatarColor, initial } from "#app/shared/services/avatar";
 import { ChannelMember, ChatChannel } from "#app/shared/services/chat";
 import { MemberRow, removeMember } from "#app/shared/services/members";
@@ -20,6 +29,7 @@ interface Editing {
 interface Admin {
   members: MemberRow[];
   confirmRemove: string;
+  confirming: boolean;
   error: string;
 }
 
@@ -73,8 +83,22 @@ function onSetArchived(channels: LiveView<ChatChannel>, c: ChatChannel, archived
   }
 }
 
-function onRemove(state: Admin, member: MemberRow) {
+function onAskRemove(state: Admin, member: MemberRow) {
+  state.confirmRemove = member.id;
+  state.confirming = true;
+}
+
+function confirmTarget(state: Admin): MemberRow | undefined {
+  return state.members.find((m) => m.id === state.confirmRemove);
+}
+
+function onRemove(state: Admin) {
+  let member = confirmTarget(state);
   state.error = "";
+
+  if (!member) {
+    return;
+  }
 
   try {
     state.members = removeMember(member.id);
@@ -95,7 +119,7 @@ function joined(d: Date): string {
   members: MemberRow[],
   private draft: NewChannel = { name: "", topic: "" },
   private editing: Editing = { id: "", name: "", topic: "" },
-  private state: Admin = { members, confirmRemove: "", error: "" },
+  private state: Admin = { members, confirmRemove: "", confirming: false, error: "" },
 )>
   <head>
     <title>Admin · Glowhollow</title>
@@ -103,95 +127,90 @@ function joined(d: Date): string {
     <link rel="icon" type="image/svg+xml" href={favicon} />
   </head>
   <body>
-    <div class="admin">
-      <Sidebar {channels} {memberships} currentId="" {me} />
+    <SidebarProvider class="admin" shortcut="" cookie="">
+      <AppSidebar {channels} {memberships} currentId="" {me} />
 
-      <main class="admin-main">
+      <SidebarInset class="admin-main">
         <header class="admin-head">
           <h1>Admin</h1>
-          <span class="pill is-accent">@{me.displayName}</span>
-          <a href="/" class="button is-ghost is-sm" style="margin-inline-start: auto">Back to chat</a>
+          <Badge variant="accent">@{me.displayName}</Badge>
+          <Button href="/" variant="ghost" size="sm" class="admin-back">Back to chat</Button>
         </header>
 
         <div class="admin-content stack is-lg">
-          <p e:if={state.error} class="callout is-danger admin-error" role="alert">{state.error}</p>
+          <Alert e:if={state.error} variant="danger" description={state.error} />
 
-          <section class="card">
-            <div class="card-head">
-              <h2>Channels</h2>
-              <p>New channels include every member. Archived channels stay readable but no one can post.</p>
-            </div>
-
-            <div class="card-body stack">
+          <Card title="Channels" level={2} description="New channels include every member. Archived channels stay readable but no one can post.">
+            <CardContent class="stack">
               <form class="new-channel" onsubmit={() => onCreate(channels, draft, state)}>
-                <input value={draft.name} placeholder="channel-name" aria-label="New channel name" maxlength={40} required>
-                <input value={draft.topic} placeholder="Topic (optional)" aria-label="New channel topic" maxlength={120}>
-                <button type="submit" class="is-primary">Create channel</button>
+                <Input value={draft.name} placeholder="channel-name" required attrs={{ "aria-label": "New channel name", maxlength: 40 }} />
+                <Input value={draft.topic} placeholder="Topic (optional)" attrs={{ "aria-label": "New channel topic", maxlength: 120 }} />
+                <Button type="submit" variant="primary">Create channel</Button>
               </form>
 
-              <ul class="admin-list">
-                <li e:for={c of sorted(channels)} class={["admin-row", c.archived && "is-muted"]}>
+              <ItemGroup label="Channels" class="admin-list">
+                <Item e:for={c of sorted(channels)} size="sm" class={["admin-row", c.archived && "is-muted"].filter(Boolean).join(" ")}>
                   <form e:if={editing.id === c.id} class="rename-form" onsubmit={() => onSaveEdit(channels, editing, c, state)}>
-                    <input value={editing.name} aria-label="Channel name" maxlength={40} required focus={true}>
-                    <input value={editing.topic} aria-label="Channel topic" placeholder="Topic" maxlength={120}>
-                    <button type="submit" class="is-primary is-sm">Save</button>
-                    <button type="button" class="is-ghost is-sm" onclick={() => editing.id = ""}>Cancel</button>
+                    <Input value={editing.name} size="sm" required attrs={{ "aria-label": "Channel name", maxlength: 40, autofocus: true }} />
+                    <Input value={editing.topic} size="sm" placeholder="Topic" attrs={{ "aria-label": "Channel topic", maxlength: 120 }} />
+                    <Button type="submit" variant="primary" size="sm">Save</Button>
+                    <Button variant="ghost" size="sm" onclick={() => editing.id = ""}>Cancel</Button>
                   </form>
 
-                  <div e:else class="contents">
-                    <div class="admin-row-main">
-                      <div class="admin-row-title">
-                        <a e:if={!c.archived} href={`/c/${c.id}`}>#{c.name}</a>
-                        <span e:else>#{c.name}</span>
-                        <span e:if={c.archived} class="pill is-warning">archived</span>
-                      </div>
-                      <div class="admin-row-sub">{c.topic || "No topic"}</div>
-                    </div>
+                  <ItemContent e:if={editing.id !== c.id}>
+                    <ItemTitle>
+                      <a e:if={!c.archived} href={`/c/${c.id}`}>#{c.name}</a>
+                      <span e:else>#{c.name}</span>
+                      <Badge e:if={c.archived} variant="warning">archived</Badge>
+                    </ItemTitle>
+                    <ItemDescription>{c.topic || "No topic"}</ItemDescription>
+                  </ItemContent>
 
-                    <div class="admin-row-actions">
-                      <button class="is-sm" onclick={() => onEdit(editing, c)}>Rename</button>
-                      <button e:if={!c.archived} class="is-sm" onclick={() => onSetArchived(channels, c, true, state)}>Archive</button>
-                      <button e:else class="is-sm" onclick={() => onSetArchived(channels, c, false, state)}>Restore</button>
-                    </div>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </section>
+                  <ItemActions e:if={editing.id !== c.id}>
+                    <Button size="sm" onclick={() => onEdit(editing, c)}>Rename</Button>
+                    <Button e:if={!c.archived} size="sm" onclick={() => onSetArchived(channels, c, true, state)}>Archive</Button>
+                    <Button e:else size="sm" onclick={() => onSetArchived(channels, c, false, state)}>Restore</Button>
+                  </ItemActions>
+                </Item>
+              </ItemGroup>
+            </CardContent>
+          </Card>
 
-          <section class="card">
-            <div class="card-head">
-              <h2>Members</h2>
-              <p>Removing someone signs them out everywhere and blocks them from signing back in. Their past messages stay.</p>
-            </div>
+          <Card title="Members" level={2} description="Removing someone signs them out everywhere and blocks them from signing back in. Their past messages stay.">
+            <CardContent>
+              <ItemGroup label="Members" class="admin-list">
+                <Item e:for={m of state.members} size="sm" class={m.removed ? "admin-row is-muted" : "admin-row"}>
+                  <ItemMedia variant="avatar">
+                    <Avatar fallback={initial(m.displayName)} class="member-avatar" attrs={{ style: avatarColor(m.displayName) }} />
+                  </ItemMedia>
 
-            <div class="card-body">
-              <ul class="admin-list">
-                <li e:for={m of state.members} class={["admin-row", m.removed && "is-muted"]}>
-                  <span class="avatar" style={avatarColor(m.displayName)} aria-hidden="true">{initial(m.displayName)}</span>
-
-                  <div class="admin-row-main">
-                    <div class="admin-row-title">
+                  <ItemContent>
+                    <ItemTitle>
                       @{m.displayName}
-                      <span e:if={m.role === "admin"} class="pill is-accent">admin</span>
-                      <span e:if={m.removed} class="pill is-danger">removed</span>
-                    </div>
-                    <div class="admin-row-sub">{m.email} · joined {joined(m.createdAt)} · {m.messageCount} {m.messageCount === 1 ? "message" : "messages"}</div>
-                  </div>
+                      <Badge e:if={m.role === "admin"} variant="accent">admin</Badge>
+                      <Badge e:if={m.removed} variant="danger">removed</Badge>
+                    </ItemTitle>
+                    <ItemDescription>{m.email} · joined {joined(m.createdAt)} · {m.messageCount} {m.messageCount === 1 ? "message" : "messages"}</ItemDescription>
+                  </ItemContent>
 
-                  <div e:if={!m.removed && m.role !== "admin"} class="admin-row-actions">
-                    <span e:if={state.confirmRemove === m.id} class="contents">
-                      <button class="is-danger is-sm" onclick={() => onRemove(state, m)}>Remove @{m.displayName}</button>
-                      <button class="is-ghost is-sm" onclick={() => state.confirmRemove = ""}>Cancel</button>
-                    </span>
-                    <button e:else class="is-sm" onclick={() => state.confirmRemove = m.id}>Remove</button>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </section>
+                  <ItemActions e:if={!m.removed && m.role !== "admin"}>
+                    <Button size="sm" onclick={() => onAskRemove(state, m)}>Remove</Button>
+                  </ItemActions>
+                </Item>
+              </ItemGroup>
+            </CardContent>
+          </Card>
         </div>
-      </main>
-    </div>
+
+        <AlertDialog open={state.confirming}
+                     title={`Remove @${confirmTarget(state)?.displayName ?? ""}?`}
+                     description="This signs them out everywhere and blocks them from signing back in. Their past messages stay.">
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction variant="danger" onclick={() => onRemove(state)}>Remove @{confirmTarget(state)?.displayName}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialog>
+      </SidebarInset>
+    </SidebarProvider>
   </body>
 </html>
