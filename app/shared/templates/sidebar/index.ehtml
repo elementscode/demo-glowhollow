@@ -70,7 +70,8 @@ function onSignout() {
                 <span>{row.name}</span>
               </SidebarMenuButton>
               <SidebarMenuBadge e:if={row.unread > 0 && row.id !== currentId}
-                                class="unread-count">{row.unread > 99 ? "99+" : row.unread}<span class="sr-only"> unread</span></SidebarMenuBadge>
+                                class="unread-count"
+                                attrs={{ "aria-label": `${row.unread} unread` }}>{row.unread > 99 ? "99+" : row.unread}</SidebarMenuBadge>
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroupContent>
