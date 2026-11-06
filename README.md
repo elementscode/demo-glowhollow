@@ -4,6 +4,8 @@
 
 > Glowhollow is a full-stack app built with Claude Code on Elements.
 
+Glowhollow uses the `playful` theme from @elements/ui.
+
 Channels with unread counts, image attachments, emoji reactions, presence and typing indicators, and @mentions that email offline members, all live.
 
 [Run this app on your machine](https://elements.dev/demos/01a0db1e-6bb5-7fe0-b637-9a1d9abcc6a6). Use this demo as inspiration, or as the starting point for your own app. Your agent creates a new app with this one as the scaffold, and you prompt it to add whatever features you want.
