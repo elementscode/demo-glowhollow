@@ -6,7 +6,7 @@ export function avatarColor(name: string): string {
     hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
   }
 
-  return `--member-hue: oklch(0.56 0.13 ${hash % 360})`;
+  return `--avatar-fallback-bg: oklch(0.56 0.13 ${hash % 360}); --avatar-fallback-ink: var(--white)`;
 }
 
 export function initial(name: string): string {

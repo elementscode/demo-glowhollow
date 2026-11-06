@@ -1,6 +1,4 @@
-/* Each member keeps one color: the hue comes from their name. */
+/* Each member keeps one color, set by avatarColor(); the initials are bold on it. */
 .avatar.member-avatar .avatar-fallback {
-  background: var(--member-hue);
-  color: var(--white);
   font-weight: var(--weight-semibold);
 }
